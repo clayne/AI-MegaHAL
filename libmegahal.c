@@ -109,6 +109,7 @@ Craig Andrews
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdint.h>
 #ifndef _MSC_VER
 #include <unistd.h>
 //#include <getopt.h>
@@ -149,10 +150,9 @@ Craig Andrews
 
 #define COMMAND_SIZE (sizeof(command)/sizeof(command[0]))
 
-#define BYTE1 unsigned char
-#define BYTE2 unsigned short
-
-#define BYTE4 unsigned int
+#define BYTE1 uint8_t
+#define BYTE2 uint16_t
+#define BYTE4 uint32_t
 
 #ifdef __mac_os
 #define bool Boolean
@@ -192,8 +192,8 @@ typedef struct {
 
 typedef struct {
     BYTE4 size;
+    BYTE4 *index;
     STRING *entry;
-    BYTE2 *index;
 } DICTIONARY;
 
 typedef struct {
@@ -203,10 +203,10 @@ typedef struct {
 } SWAP;
 
 typedef struct NODE {
-    BYTE2 symbol;
+    BYTE4 symbol;
     BYTE4 usage;
-    BYTE2 count;
-    BYTE2 branch;
+    BYTE4 count;
+    BYTE4 branch;
     struct NODE **tree;
 } TREE;
 
@@ -289,8 +289,8 @@ static void add_aux(MODEL *, DICTIONARY *, STRING);
 static void add_key(MODEL *, DICTIONARY *, STRING);
 static void add_node(TREE *, TREE *, int);
 static void add_swap(SWAP *, char *, char *);
-static TREE *add_symbol(TREE *, BYTE2);
-static BYTE2 add_word(DICTIONARY *, STRING);
+static TREE *add_symbol(TREE *, BYTE4);
+static BYTE4 add_word(DICTIONARY *, STRING);
 static int babble(MODEL *, DICTIONARY *, DICTIONARY *);
 static bool boundary(char *, int);
 static void capitalize(char *);
@@ -305,7 +305,7 @@ static COMMAND_WORDS execute_command(DICTIONARY *, int *);
 static void exithal(void);
 static TREE *find_symbol(TREE *, int);
 static TREE *find_symbol_add(TREE *, int);
-static BYTE2 find_word(DICTIONARY *, STRING);
+static BYTE4 find_word(DICTIONARY *, STRING);
 static char *generate_reply(MODEL *, DICTIONARY *);
 static void help(void);
 static void ignore(int);
@@ -1057,7 +1057,7 @@ static char *format_output(char *output)
  *						the dictionary, then return its current identifier
  *						without adding it again.
  */
-BYTE2 add_word(DICTIONARY *dictionary, STRING word)
+BYTE4 add_word(DICTIONARY *dictionary, STRING word)
 {
     unsigned int i;
     int position;
@@ -1078,11 +1078,11 @@ BYTE2 add_word(DICTIONARY *dictionary, STRING word)
      *		Allocate one more entry for the word index
      */
     if(dictionary->index==NULL) {
-	dictionary->index=(BYTE2 *)malloc(sizeof(BYTE2)*
+	dictionary->index=(BYTE4 *)malloc(sizeof(BYTE4)*
 					  (dictionary->size));
     } else {
-	dictionary->index=(BYTE2 *)realloc((BYTE2 *)
-					   (dictionary->index),sizeof(BYTE2)*(dictionary->size));
+	dictionary->index=(BYTE4 *)realloc((BYTE4 *)
+					   (dictionary->index),sizeof(BYTE4)*(dictionary->size));
     }
     if(dictionary->index==NULL) {
 	error("add_word", "Unable to reallocate the index.");
@@ -1215,7 +1215,7 @@ notfound:
  *						We assume that the word with index zero is equal to a
  *						NULL word, indicating an error condition.
  */
-BYTE2 find_word(DICTIONARY *dictionary, STRING word)
+BYTE4 find_word(DICTIONARY *dictionary, STRING word)
 {
     int position;
     bool found;
@@ -1524,7 +1524,7 @@ void update_model(MODEL *model, int symbol)
      */
     for(i=(model->order+1); i>0; --i)
 	if(model->context[i-1]!=NULL)
-	    model->context[i]=add_symbol(model->context[i-1], (BYTE2)symbol);
+	    model->context[i]=add_symbol(model->context[i-1], (BYTE4)symbol);
 
     return;
 }
@@ -1554,7 +1554,7 @@ void update_context(MODEL *model, int symbol)
  *						specified symbol, which may mean growing the tree if the
  *						symbol hasn't been seen in this context before.
  */
-TREE *add_symbol(TREE *tree, BYTE2 symbol)
+TREE *add_symbol(TREE *tree, BYTE4 symbol)
 {
     TREE *node=NULL;
 
@@ -1756,7 +1756,7 @@ void initialize_context(MODEL *model)
 void learn(MODEL *model, DICTIONARY *words)
 {
     register int i;
-    BYTE2 symbol;
+    BYTE4 symbol;
 
     /*
      *		We only learn from inputs which are long enough
@@ -1933,10 +1933,10 @@ void save_tree(FILE *file, TREE *node)
     static int level=0;
     register int i;
 
-    fwrite(&(node->symbol), sizeof(BYTE2), 1, file);
+    fwrite(&(node->symbol), sizeof(BYTE4), 1, file);
     fwrite(&(node->usage), sizeof(BYTE4), 1, file);
-    fwrite(&(node->count), sizeof(BYTE2), 1, file);
-    fwrite(&(node->branch), sizeof(BYTE2), 1, file);
+    fwrite(&(node->count), sizeof(BYTE4), 1, file);
+    fwrite(&(node->branch), sizeof(BYTE4), 1, file);
 
     if(level==0) progress("Saving tree", 0, 1);
     for(i=0; i<node->branch; ++i) {
@@ -1960,10 +1960,10 @@ void load_tree(FILE *file, TREE *node)
     static int level=0;
     register int i;
 
-    fread(&(node->symbol), sizeof(BYTE2), 1, file);
+    fread(&(node->symbol), sizeof(BYTE4), 1, file);
     fread(&(node->usage), sizeof(BYTE4), 1, file);
-    fread(&(node->count), sizeof(BYTE2), 1, file);
-    fread(&(node->branch), sizeof(BYTE2), 1, file);
+    fread(&(node->count), sizeof(BYTE4), 1, file);
+    fread(&(node->branch), sizeof(BYTE4), 1, file);
 
     if(node->branch==0) return;
 
