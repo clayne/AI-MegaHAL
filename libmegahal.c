@@ -1113,8 +1113,8 @@ BYTE4 add_word(DICTIONARY *dictionary, STRING word)
 	error("add_word", "Unable to allocate the word.");
 	goto fail;
     }
-    for(i=0; i<word.length; ++i)
-	dictionary->entry[dictionary->size-1].word[i]=word.word[i];
+
+    memcpy(dictionary->entry[dictionary->size-1].word, word.word, word.length);
 
     /*
      *		Shuffle the word index to keep it sorted alphabetically
