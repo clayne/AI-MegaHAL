@@ -468,7 +468,7 @@ char *megahal_do_reply(char *input, int log)
     if (log != 0)
 	write_input(input);  /* log input if so desired */
 
-    upper(input);
+    /* upper(input); */
 
     make_words(input, words);
 
@@ -491,7 +491,7 @@ void megahal_learn(char *input, int log)
     if (log != 0)
 	write_input(input);  /* log input if so desired */
 
-    upper(input);
+    /* upper(input); */
 
     make_words(input, words);
 
@@ -944,10 +944,13 @@ void capitalize(char *string)
     unsigned int i;
     bool start=TRUE;
 
-    for(i=0; i<(int)strlen(string); ++i) {
+    unsigned int l = strlen(string);
+    for(i=0; i<l; ++i) {
 	if(isalpha(string[i])) {
 	    if(start==TRUE) string[i]=(char)toupper((int)string[i]);
-	    else string[i]=(char)tolower((int)string[i]);
+	    /* something CAPITALIZED here But not here */
+	    else if (i && i+1 < l && isspace(string[i-1]) && isupper(string[i]) && !isupper(string[i+1]))
+		string[i]=(char)tolower((int)string[i]);
 	    start=FALSE;
 	}
 	if((i>2)&&(strchr("!.?", string[i-1])!=NULL)&&(isspace(string[i])))
@@ -1243,10 +1246,7 @@ int wordcmp(STRING word1, STRING word2)
 	if(toupper(word1.word[i])!=toupper(word2.word[i]))
 	    return((int)(toupper(word1.word[i])-toupper(word2.word[i])));
 
-    if(word1.length<word2.length) return(-1);
-    if(word1.length>word2.length) return(1);
-
-    return(0);
+    return(word1.length - word2.length);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -1840,7 +1840,7 @@ void train(MODEL *model, char *filename)
 
 	buffer[strlen(buffer)-1]='\0';
 
-	upper(buffer);
+	/* upper(buffer); */
 	make_words(buffer, words);
 	learn(model, words);
 
