@@ -720,7 +720,7 @@ char *read_input(char *prompt)
     /*
      *		Display the prompt to the user.
      */
-    fputs(prompt, stdout);
+    fprintf(stdout, "%s", prompt);
     fflush(stdout);
 
     /*
@@ -743,7 +743,7 @@ char *read_input(char *prompt)
 	 */
 	if((char)(c)=='\n') {
 	    if(finish==TRUE) break;
-	    fputs(prompt, stdout);
+	    fprintf(stdout, "%s", prompt);
 	    fflush(stdout);
 	    finish=TRUE;
 	    c=32;
@@ -893,11 +893,11 @@ bool print_header(FILE *file)
 
     clock=time(NULL);
     local=localtime(&clock);
-    strftime(timestamp, 1024, "Start at: [%Y/%m/%d %H:%M:%S]\n", local);
+    strftime(timestamp, 1024, "Start at: [%Y/%m/%d %H:%M:%S]", local);
 
-    fprintf(file, "MegaHALv8\n");
-    fprintf(file, "Copyright (C) 1998 Jason Hutchens\n");
-    fputs(timestamp, file);
+    fprintf(file, "%s\n", "MegaHALv8");
+    fprintf(file, "%s\n", "Copyright (C) 1998 Jason Hutchens");
+    fprintf(file, "%s\n", timestamp);
     fflush(file);
 
     return(TRUE);
@@ -1364,8 +1364,11 @@ DICTIONARY *new_dictionary(void)
 void save_dictionary(FILE *file, DICTIONARY *dictionary)
 {
     unsigned int i;
+    size_t wl;
 
-    fwrite(&(dictionary->size), sizeof(BYTE4), 1, file);
+    wl = fwrite(&(dictionary->size), sizeof(BYTE4), 1, file);
+    if (wl != 1) error("save_dictionary", "Unable to save dictionary size");
+
     progress("Saving dictionary", 0, 1);
     for(i=0; i<dictionary->size; ++i) {
 	save_word(file, dictionary->entry[i]);
@@ -1384,9 +1387,12 @@ void save_dictionary(FILE *file, DICTIONARY *dictionary)
 void load_dictionary(FILE *file, DICTIONARY *dictionary)
 {
     unsigned int i;
+    size_t rl;
     int size;
 
-    fread(&size, sizeof(BYTE4), 1, file);
+    rl = fread(&size, sizeof(BYTE4), 1, file);
+    if (rl != 1) error("load_dictionary","Unable to read dictionary size");
+
     progress("Loading dictionary", 0, 1);
     for(i=0; i<size; ++i) {
 	load_word(file, dictionary);
@@ -1405,10 +1411,13 @@ void load_dictionary(FILE *file, DICTIONARY *dictionary)
 void save_word(FILE *file, STRING word)
 {
     unsigned int i;
+    size_t wl;
 
-    fwrite(&(word.length), sizeof(BYTE1), 1, file);
-    for(i=0; i<word.length; ++i)
-	fwrite(&(word.word[i]), sizeof(char), 1, file);
+    wl = fwrite(&(word.length), sizeof(BYTE1), 1, file);
+    if (wl != 1) error("save_word", "Unable to save word length");
+
+    wl = fwrite(word.word, sizeof(char), word.length, file);
+    if (wl != word.length) error("save_word", "Unable to save word");
 }
 
 /*---------------------------------------------------------------------------*/
@@ -1422,15 +1431,20 @@ void load_word(FILE *file, DICTIONARY *dictionary)
 {
     unsigned int i;
     STRING word;
+    size_t rl;
 
-    fread(&(word.length), sizeof(BYTE1), 1, file);
+    rl = fread(&word.length, sizeof(BYTE1), 1, file);
+    if (rl != 1) error("load_word","Unable to read word length");
+
     word.word=(char *)malloc(sizeof(char)*word.length);
     if(word.word==NULL) {
 	error("load_word", "Unable to allocate word");
 	return;
     }
-    for(i=0; i<word.length; ++i)
-	fread(&(word.word[i]), sizeof(char), 1, file);
+
+    rl = fread(word.word, sizeof *word.word, word.length, file);
+    if (rl != word.length) error("load_word","Unable to read word");
+
     add_word(dictionary, word);
     free(word.word);
 }
@@ -1892,6 +1906,7 @@ void save_model(char *modelname, MODEL *model)
 {
     FILE *file;
     static char *filename=NULL;
+    size_t l, wl;
 
     if(filename==NULL) filename=(char *)malloc(sizeof(char)*1);
 
@@ -1912,8 +1927,12 @@ void save_model(char *modelname, MODEL *model)
 	return;
     }
 
-    fwrite(COOKIE, sizeof(char), strlen(COOKIE), file);
-    fwrite(&(model->order), sizeof(BYTE1), 1, file);
+    wl = fwrite(COOKIE, sizeof(char), (l = strlen(COOKIE)), file);
+    if (wl != l) error("save_model","Unable to write COOKIE");
+
+    wl = fwrite(&(model->order), sizeof(BYTE1), 1, file);
+    if (wl != 1) error("save_model","Unable to write model->order");
+
     save_tree(file, model->forward);
     save_tree(file, model->backward);
     save_dictionary(file, model->dictionary);
@@ -1932,11 +1951,13 @@ void save_tree(FILE *file, TREE *node)
 {
     static int level=0;
     register int i;
+    size_t wl = 0;
 
-    fwrite(&(node->symbol), sizeof(BYTE4), 1, file);
-    fwrite(&(node->usage), sizeof(BYTE4), 1, file);
-    fwrite(&(node->count), sizeof(BYTE4), 1, file);
-    fwrite(&(node->branch), sizeof(BYTE4), 1, file);
+    wl += fwrite(&(node->symbol), sizeof(BYTE4), 1, file);
+    wl += fwrite(&(node->usage), sizeof(BYTE4), 1, file);
+    wl += fwrite(&(node->count), sizeof(BYTE4), 1, file);
+    wl += fwrite(&(node->branch), sizeof(BYTE4), 1, file);
+    if (wl != 4) error("save_tree","Unable to save tree");
 
     if(level==0) progress("Saving tree", 0, 1);
     for(i=0; i<node->branch; ++i) {
@@ -1959,11 +1980,13 @@ void load_tree(FILE *file, TREE *node)
 {
     static int level=0;
     register int i;
+    size_t rl = 0;
 
-    fread(&(node->symbol), sizeof(BYTE4), 1, file);
-    fread(&(node->usage), sizeof(BYTE4), 1, file);
-    fread(&(node->count), sizeof(BYTE4), 1, file);
-    fread(&(node->branch), sizeof(BYTE4), 1, file);
+    rl += fread(&(node->symbol), sizeof(BYTE4), 1, file);
+    rl += fread(&(node->usage), sizeof(BYTE4), 1, file);
+    rl += fread(&(node->count), sizeof(BYTE4), 1, file);
+    rl += fread(&(node->branch), sizeof(BYTE4), 1, file);
+    if (rl != 4) error("load_tree", "Unable to read node data");
 
     if(node->branch==0) return;
 
@@ -1995,25 +2018,29 @@ bool load_model(char *filename, MODEL *model)
 {
     FILE *file;
     char cookie[16];
-
+    size_t l, rl;
 
     if(filename==NULL) return(FALSE);
 
     file=fopen(filename, "rb");
 
     if(file==NULL) {
-	warn("load_model", "Unable to open file `%s'", filename);
+/*	warn("load_model", "Unable to open file `%s'", filename);*/
 	return(FALSE);
     }
 
 
-    fread(cookie, sizeof(char), strlen(COOKIE), file);
+    rl = fread(cookie, sizeof(char), (l = strlen(COOKIE)), file);
+    if (rl != l) error("load_model", "Unable to load COOKIE");
+
     if(strncmp(cookie, COOKIE, strlen(COOKIE))!=0) {
 	warn("load_model", "File `%s' is not a MegaHAL brain", filename);
 	goto fail;
     }
 
-    fread(&(model->order), sizeof(BYTE1), 1, file);
+    rl = fread(&(model->order), sizeof(BYTE1), 1, file);
+    if (rl != 1) error("load_model", "Unable to load model->order");
+
     load_tree(file, model->forward);
     load_tree(file, model->backward);
     load_dictionary(file, model->dictionary);
@@ -2880,7 +2907,7 @@ void delay(char *string)
      *		Don't simulate typing if the feature is turned off
      */
     if(typing_delay==FALSE)	{
-	fputs(string, stdout);
+	fprintf(stdout, "%s", string);
 	return;
     }
 
